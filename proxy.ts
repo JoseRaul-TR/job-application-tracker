@@ -1,9 +1,8 @@
-// middleware.ts
+// proxy.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Better Auth session cookie (http in dev, __Secure- in prod)

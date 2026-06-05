@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "../auth/auth";
 import connectDB from "../db";
 import { Board, Column, JobApplication } from "../models";
-import { success } from "better-auth";
 
 interface JobApplicationData {
   company: string;

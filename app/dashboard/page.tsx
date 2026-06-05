@@ -31,10 +31,19 @@ async function getBoard(userId: string) {
 
 async function DashboardPage() {
   const session = await getSession();
-  const board = await getBoard(session?.user.id ?? "");
-
   if (!session?.user) {
     redirect("/sign-in");
+  }
+
+  const board = await getBoard(session?.user.id ?? "");
+
+  // Guard against the board not existing yet (race condition ono first sign-in)
+  if (!board) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-muted-foreground">Setting up your board…</p>
+      </div>
+    );
   }
 
   return (
@@ -52,7 +61,7 @@ async function DashboardPage() {
 
 export default async function Dashboard() {
   return (
-    <Suspense fallback={<p>Loading...</p>}>
+    <Suspense fallback={<p className="p-6 text-muted-foreground">Loading…</p>}>
       <DashboardPage />
     </Suspense>
   );

@@ -1,12 +1,13 @@
 // lib/auth/auth.ts
 
-import { betterAuth, email } from "better-auth";
+import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { initializeUserBoard } from "../init-user-board";
-import { User } from "../models";
+import connectDB from "../db";
+import { Board, Column, JobApplication } from "../models";
 
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
@@ -24,6 +25,17 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    minPasswordLength: 8,
+  },
+  user: {
+    changeEmail: {
+      // No sendChangeEmailVerification callback = changes email immediately.
+      // Add a callback here when you add an email provider (Resend, etc.)
+      enabled: true,
+    },
+    deleteUser: {
+      enabled: true,
+    },
   },
   databaseHooks: {
     user: {
@@ -31,28 +43,18 @@ export const auth = betterAuth({
         after: async (user) => {
           if (user.id) {
             await initializeUserBoard(user.id);
-            await User.create({
-              _id: user.id,
-              name: user.name,
-              email: user.email,
-              password: user.password,
-            });
           }
         },
       },
-      update: {
-        after: async (user) => {
-          if (user.id) {
-            await User.findByIdAndUpdate(
-              user.id,
-              {
-                name: user.name,
-                email: user.email,
-                image: user.image,
-              },
-              { new: true },
-            );
-          }
+      delete: {
+        before: async (user) => {
+          // Cascade-delete all app data before Better Auth removes the user record
+          await connectDB();
+          const boards = await Board.find({ userId: user.id });
+          const boardIds = boards.map((b) => b._id);
+          await JobApplication.deleteMany({ userID: user.id });
+          await Column.deleteMany({ boardID: { $in: boardIds } });
+          await Board.deleteMany({ userId: user.id });
         },
       },
     },

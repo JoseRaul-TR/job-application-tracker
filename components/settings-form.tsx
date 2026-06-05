@@ -1,158 +1,237 @@
-// components/settings-form.tsx
-
 "use client";
+
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Label } from "./ui/label";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import {
   updateName,
   updateEmail,
   updatePassword,
 } from "@/lib/actions/user-profile";
-import { useState } from "react";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
+
+interface StatusState {
+  error?: string;
+  success?: string;
+}
 
 export default function SettingsForm({
   user,
 }: {
   user: { name: string; email: string };
 }) {
+  // –– Name states –––
   const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameStatus, setNameStatus] = useState<StatusState>({});
+  // –– Email states –––
+  const [currentEmail, setCurrentEmail] = useState(user.email);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<StatusState>({});
+  // –– Password states –––
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [passwordForEmail, setPasswordForEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<StatusState>({});
 
-  const handleUpdateName = async () => {
-    setIsLoading(true);
+  // ––– Handlers –––
+
+  async function handleUpdateName() {
+    setNameLoading(true);
+    setNameStatus({});
     const result = await updateName(name);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess("Name successfully updated");
-    }
-    setIsLoading(false);
-  };
+    setNameStatus(
+      result.error
+        ? { error: result.error }
+        : { success: "Name updated successfully" },
+    );
+    setNameLoading(false);
+  }
 
-  const handleUpdateEmail = async () => {
-    if (newEmail === email) {
-      setError("New email must be different from current email.");
-      return;
-    }
-    setIsLoading(true);
+  async function handleUpdateEmail(e: React.SubmitEvent) {
+    e.preventDefault();
+    setEmailStatus({});
+
+    setEmailLoading(true);
     const result = await updateEmail({
       newEmail,
-      password: passwordForEmail,
+      currentPassword: emailPassword,
     });
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess("Email successfully updated!");
-      setEmail(newEmail);
-      setNewEmail("");
-      setPasswordForEmail("");
-    }
-    setIsLoading(false);
-  };
 
-  const handleUpdatePassword = async () => {
+    if (result.error) {
+      setEmailStatus({ error: result.error });
+    } else {
+      setEmailStatus({ success: "Email updated successfully" });
+      setCurrentEmail(newEmail.trim().toLowerCase());
+      setNewEmail("");
+      setEmailPassword("");
+    }
+    setEmailLoading(false);
+  }
+
+  async function handleUpdatePassword(e: React.SubmitEvent) {
+    e.preventDefault();
+    setPasswordStatus({});
+
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match.");
+      setPasswordStatus({ error: "Passwords do not match" });
       return;
     }
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setPasswordStatus({ error: "Password must be at least 8 characters" });
       return;
     }
-    setIsLoading(true);
-    const result = await updatePassword({
-      currentPassword,
-      newPassword,
-    });
+
+    setPasswordLoading(true);
+    const result = await updatePassword({ currentPassword, newPassword });
+
     if (result.error) {
-      setError(result.error);
+      setPasswordStatus({ error: result.error });
     } else {
-      setSuccess("Password successfully updated");
+      setPasswordStatus({ success: "Password updated successfully" });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     }
-    setIsLoading(false);
-  };
+    setPasswordLoading(false);
+  }
 
   return (
     <div className="space-y-6">
-      {/* Name Section */}
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <div className="flex gap-2">
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Button onClick={handleUpdateName} disabled={isLoading}>
-            Update Name
+      {/* ── Name ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Display Name</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          {nameStatus.error && (
+            <p className="text-sm text-destructive">{nameStatus.error}</p>
+          )}
+          {nameStatus.success && (
+            <p className="text-sm text-green-600">{nameStatus.success}</p>
+          )}
+          <Button onClick={handleUpdateName} disabled={nameLoading}>
+            {nameLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Name
           </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Email Section */}
-      <div className="space-y-2">
-        <Label htmlFor="name">Email</Label>
-        <p className="text-sm text-muted-foreground">{user.email}</p>
-        <div className="space-y-2">
-          <Input
-            placeholder="New Email Address"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="Confirm Password to Change Email"
-            value={passwordForEmail}
-            onChange={(e) => setPasswordForEmail(e.target.value)}
-          />
-          <Button onClick={handleUpdateEmail} disabled={isLoading}>
-            Update Email
-          </Button>
-        </div>
-      </div>
+      {/* ––– Email ––– */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Email Address</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleUpdateEmail} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Current Email</Label>
+              <Input value={currentEmail} disabled className="bg-muted" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newEmail">New Email</Label>
+              <Input
+                id="newEmail"
+                type="email"
+                placeholder="newemail@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emailPassword">Current Password</Label>
+              <Input
+                id="emailPassword"
+                type="password"
+                placeholder="Introduce your password to confirm your identity"
+                value={emailPassword}
+                onChange={(e) => setEmailPassword(e.target.value)}
+                required
+              />
+            </div>
+            {emailStatus.error && (
+              <p className="text-sm text-destructive">{emailStatus.error}</p>
+            )}
+            {emailStatus.success && (
+              <p className="text-sm text-green-600">{emailStatus.success}</p>
+            )}
+            <Button type="submit" disabled={emailLoading}>
+              {emailLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Change Email
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-      {/* Password Section */}
-      <div className="space-y-2">
-        <Label>Change Password</Label>
-        <div className="space-y-2">
-          <Input
-            type="password"
-            placeholder="Current Password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="New Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="Confirm New Password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-          <Button onClick={handleUpdatePassword} disabled={isLoading}>
-            Update Password
-          </Button>
-        </div>
-      </div>
-
-      {error && <p className="text-destructive">{error}</p>}
-      {success && <p className="text-green-500">{success}</p>}
+      {/* ── Password ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Password</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            {passwordStatus.error && (
+              <p className="text-sm text-destructive">{passwordStatus.error}</p>
+            )}
+            {passwordStatus.success && (
+              <p className="text-sm text-green-600">{passwordStatus.success}</p>
+            )}
+            <Button type="submit" disabled={passwordLoading}>
+              {passwordLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Change Password
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

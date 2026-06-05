@@ -2,110 +2,138 @@
 
 "use server";
 
-import { getSession } from "@/lib/auth/auth";
-import { auth } from "@/lib/auth/auth";
-import cloudinary from "cloudinary";
-import connectDB from "@/lib/db";
-import { User } from "@/lib/models";
+import { revalidatePath } from "next/cache";
+import { auth, getSession } from "@/lib/auth/auth";
+import { v2 as cloudinary } from "cloudinary";
 import { headers } from "next/headers";
 
-cloudinary.v2.config({
+cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloudinary_url: process.env.CLOUDINARY_URL,
 });
+
+// ––– Profile Image –––
 
 export async function updateProfileImage(formData: FormData) {
   const session = await getSession();
-  if (!session?.user) {
-    return { error: "Unauthorized" };
-  }
+  if (!session?.user) return { error: "Unauthorized" };
 
-  const file = formData.get("image") as File;
-  if (!file) {
-    return { error: "No image provided" };
-  }
+  const file = formData.get("image") as File | null;
+  if (!file || !file.size) return { error: "No image provided" };
+  if (!file.type.startsWith("image/")) return { error: "File mus be an image" };
+  if (file.size > 2 * 1024 * 1024) return { error: "Image must be under 2MB" };
 
   try {
     // Upload to Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.v2.uploader
+
+    const imageUrl = await new Promise<string>((resolve, reject) => {
+      cloudinary.uploader
         .upload_stream(
           {
-            folder: "profile-images",
+            folder: "job-tracker/profile-images",
             resource_type: "image",
+            // Overwrite previous image using ID as public_id
+            public_id: `user-${session.user.id}`,
+            overwrite: true,
           },
           (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
+            if (error || !result) reject(error ?? new Error("Upload failed"));
+            else resolve(result.secure_url);
           },
         )
         .end(buffer);
     });
 
-    const imageUrl = (result as { secure_url: string }).secure_url;
+    // Save Cloudinary URL to Better Auth's own user record
+    await auth.api.updateUser({
+      body: { image: imageUrl },
+      headers: await headers(),
+    });
 
-    // Save URL to user in DB
-    await connectDB();
-    await User.findByIdAndUpdate(
-      session.user.id,
-      { image: imageUrl },
-      { new: true },
-    );
-
+    revalidatePath("/settings");
     return { data: { imageUrl } };
   } catch (err) {
+    console.error("Image upload error:", err);
     return { error: "Failed to upload image" };
   }
 }
 
+// ––– Name –––
+
 export async function updateName(newName: string) {
   const session = await getSession();
-  if (!session?.user) {
-    return { error: "Unauthorized" };
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const trimmed = newName.trim();
+  if (!trimmed) return { error: "Name cannot be empty" };
+
+  try {
+    await auth.api.updateUser({
+      body: { name: trimmed },
+      headers: await headers(),
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (err) {
+    console.error("Update name error:", err);
+    return { error: "Failed to update name" };
   }
-  if (!newName.trim()) {
-    return { error: "Name cannot be empty" };
-  }
-  await connectDB();
-  await User.findByIdAndUpdate(session.user.id, { name: newName.trim() });
-  return { data: { name: newName } };
 }
+
+// ––– Email –––
 
 export async function updateEmail({
   newEmail,
-  password,
+  currentPassword,
 }: {
   newEmail: string;
-  password: string;
+  currentPassword: string;
 }) {
   const session = await getSession();
-  if (!session?.user) {
-    return { error: "Unauthorized" };
-  }
-  if (!newEmail.trim()) {
-    return { error: "Email cannot be empty" };
+  if (!session?.user) return { error: "Unauthorized" };
+
+  const trimmed = newEmail.trim().toLowerCase();
+  if (!trimmed) return { error: "Email cannot be empty" };
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) return { error: "Invalid email address" };
+
+  if (trimmed === session.user.email.toLowerCase()) {
+    return { error: "New email must be different from your current email" };
   }
 
-  // Verify current password
-  const user = await auth.api.getUser({ id: session.user.id });
-  if (!user || !(await auth.api.verifyPassword({ password, user }))) {
+  // Require current password before a sensitive account change
+  try {
+    await auth.api.signInEmail({
+      body: { email: session.user.email, password: currentPassword },
+    });
+  } catch {
     return { error: "Incorrect password" };
   }
 
-  // Check if email is unique
-  await connectDB();
-  const existingUser = await User.findOne({ email: newEmail.trim() });
-  if (existingUser) {
-    return { error: "Email already in use" };
-  }
+  try {
+    await auth.api.changeEmail({
+      body: { newEmail: trimmed },
+      headers: await headers(),
+    });
 
-  // Update email
-  await User.findByIdAndUpdate(session.user.id, { email: newEmail.trim() });
-  return { data: { email: newEmail } };
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("Update email error", err);
+    const message = err instanceof Error ? err.message : "";
+    // Better Auth throws when the email is already taken
+    if (message.toLowerCase().includes("email")) {
+      return { error: "Email already in use by another account" };
+    }
+    return { error: "Failed to update email" };
+  }
 }
+
+// ––– Password –––
 
 export async function updatePassword({
   currentPassword,
@@ -115,52 +143,57 @@ export async function updatePassword({
   newPassword: string;
 }) {
   const session = await getSession();
-  if (!session?.user) {
-    return { error: "Unauthorized" };
-  }
+  if (!session?.user) return { error: "Unauthorized" };
+
   if (newPassword.length < 8) {
     return { error: "Password must be at least 8 characters" };
   }
 
-  // Verify current password
-  const user = await auth.api.getUser({ id: session.user.id });
-  if (
-    !user ||
-    !(await auth.api.verifyPassword({ password: currentPassword, user }))
-  ) {
-    return { error: "Incorrect current password" };
+  try {
+    await auth.api.changePassword({
+      body: { currentPassword, newPassword, revokeOtherSessions: true },
+      headers: await headers(),
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Failed to change password";
+    // Better Auth returns "Invalid password" when currentPassword is wrong
+    return { error: message };
   }
-
-  // Update password
-  await auth.api.updateUser({
-    id: session.user.id,
-    password: newPassword,
-  });
-
-  return { data: { success: true } };
 }
+
+// ––– Delete Account –––
 
 export async function deleteAccount(password: string) {
   const session = await getSession();
-  if (!session?.user) {
-    return { error: "Unauthorized" };
-  }
+  if (!session?.user) return { error: "Unauthorized" };
+  if (!password) return { error: "Password is required" };
 
-  // Verify password
-  const user = await auth.api.getUser({ id: session.user.id });
-  if (!user || !(await auth.api.verifyPassword({ password, user }))) {
+  // Verify password by attempting sign-in before destructive action
+  // The session created here is cleaned up when deleteUser runs below
+  try {
+    await auth.api.signInEmail({
+      body: {
+        email: session.user.email,
+        password,
+      },
+    });
+  } catch {
     return { error: "Incorrect password" };
   }
 
-  // Delete user and all related data
-  await connectDB();
-  await User.findByIdAndDelete(session.user.id);
-  // Optionally: Delete boards, job applications, etc.
-  // await Board.deleteMany({ userId: session.user.id });
-  // await JobApplication.deleteMany({ userId: session.user.id });
-
-  // Sign out the user
-  await auth.api.signOut({ headers: await headers() });
-
-  return { data: { success: true } };
+try {
+    // databaseHooks.user.delete.before in auth.ts handles cascade deletion
+    await auth.api.deleteUser({
+      body: {},
+      headers: await headers(),
+    });
+    return { success: true };
+  } catch (err) {
+    console.error("Delete account error:", err);
+    return { error: "Failed to delete account" };
+  }
 }
