@@ -3,14 +3,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth, getSession } from "@/lib/auth/auth";
-import { v2 as cloudinary } from "cloudinary";
 import { headers } from "next/headers";
+import { v2 as cloudinary } from "cloudinary";
+import { auth, getSession } from "@/lib/auth/auth";
+import connectDB from "@/lib/db";
+import { Board, Column, JobApplication } from "@/lib/models";
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   cloudinary_url: process.env.CLOUDINARY_URL,
 });
+
+// ─── Shared password verification ────────────────────────────────────────────
+// auth.api.signInEmail returns an error object on failure — it does NOT throw.
+// We use .catch(() => null) to handle the rare case it does throw, then check
+// the returned value for a valid user object.
+
+async function verifyPassword(
+  email: string,
+  password: string,
+): Promise<boolean> {
+  const result = await auth.api
+    .signInEmail({ body: { email, password } })
+    .catch(() => null);
+  return !!result?.user;
+}
 
 // ––– Profile Image –––
 
@@ -51,8 +67,8 @@ export async function updateProfileImage(formData: FormData) {
       body: { image: imageUrl },
       headers: await headers(),
     });
-
     revalidatePath("/settings");
+
     return { data: { imageUrl } };
   } catch (err) {
     console.error("Image upload error:", err);
@@ -74,7 +90,6 @@ export async function updateName(newName: string) {
       body: { name: trimmed },
       headers: await headers(),
     });
-
     revalidatePath("/settings");
     return { success: true };
   } catch (err) {
@@ -100,33 +115,32 @@ export async function updateEmail({
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(trimmed)) return { error: "Invalid email address" };
-
   if (trimmed === session.user.email.toLowerCase()) {
     return { error: "New email must be different from your current email" };
   }
 
-  // Require current password before a sensitive account change
-  try {
-    await auth.api.signInEmail({
-      body: { email: session.user.email, password: currentPassword },
-    });
-  } catch {
-    return { error: "Incorrect password" };
-  }
+  // Verify password before a sensitive account change
+  const passwordValid = await verifyPassword(
+    session.user.email,
+    currentPassword,
+  );
+  if (!passwordValid) return { error: "Incorrect password" };
 
   try {
     await auth.api.changeEmail({
       body: { newEmail: trimmed },
       headers: await headers(),
     });
-
     revalidatePath("/settings");
     return { success: true };
   } catch (err: unknown) {
     console.error("Update email error", err);
     const message = err instanceof Error ? err.message : "";
     // Better Auth throws when the email is already taken
-    if (message.toLowerCase().includes("email")) {
+    if (
+      message.toLowerCase().includes("email") ||
+      message.toLowerCase().includes("exist")
+    ) {
       return { error: "Email already in use by another account" };
     }
     return { error: "Failed to update email" };
@@ -154,7 +168,6 @@ export async function updatePassword({
       body: { currentPassword, newPassword, revokeOtherSessions: true },
       headers: await headers(),
     });
-
     revalidatePath("/settings");
     return { success: true };
   } catch (err: unknown) {
@@ -172,28 +185,34 @@ export async function deleteAccount(password: string) {
   if (!session?.user) return { error: "Unauthorized" };
   if (!password) return { error: "Password is required" };
 
-  // Verify password by attempting sign-in before destructive action
-  // The session created here is cleaned up when deleteUser runs below
+  // Verify password before destructive action
+  const passwordValid = await verifyPassword(session.user.email, password);
+  if (!passwordValid) return { error: "Incorrect password" };
+
+  // Cascade-delete all app data first.
+  // This is done here rather than in databaseHooks because Better Auth v1.x
+  // does not reliably support a user.delete.hook.
   try {
-    await auth.api.signInEmail({
-      body: {
-        email: session.user.email,
-        password,
-      },
-    });
-  } catch {
-    return { error: "Incorrect password" };
+    await connectDB();
+    const boards = await Board.find({ userId: session.user.id });
+    const boardIds = boards.map((b) => b._id);
+    await JobApplication.deleteMany({ userId: session.user.id });
+    await Column.deleteMany({ boardId: { $in: boardIds } });
+    await Board.deleteMany({ userId: session.user.id });
+  } catch (err) {
+    console.error("Cascade delete error:", err);
+    return { error: "Failed to delete account data" };
   }
 
-try {
-    // databaseHooks.user.delete.before in auth.ts handles cascade deletion
+  // Delete the Better Auth user record (also invalidates all sessions)
+  try {
     await auth.api.deleteUser({
       body: {},
       headers: await headers(),
     });
     return { success: true };
   } catch (err) {
-    console.error("Delete account error:", err);
+    console.error("Delete user error:", err);
     return { error: "Failed to delete account" };
   }
 }

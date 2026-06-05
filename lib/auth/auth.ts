@@ -6,20 +6,20 @@ import { MongoClient } from "mongodb";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { initializeUserBoard } from "../init-user-board";
-import connectDB from "../db";
-import { Board, Column, JobApplication } from "../models";
 
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
 
 export const auth = betterAuth({
+  trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") ?? [
+    "http://localhost:3000",
+  ],
   database: mongodbAdapter(db, {
     client,
   }),
   session: {
     cookieCache: {
-      enabled: true,
-      maxAge: 60 * 60,
+      enabled: false,
     },
   },
   emailAndPassword: {
@@ -29,8 +29,6 @@ export const auth = betterAuth({
   },
   user: {
     changeEmail: {
-      // No sendChangeEmailVerification callback = changes email immediately.
-      // Add a callback here when you add an email provider (Resend, etc.)
       enabled: true,
     },
     deleteUser: {
@@ -44,17 +42,6 @@ export const auth = betterAuth({
           if (user.id) {
             await initializeUserBoard(user.id);
           }
-        },
-      },
-      delete: {
-        before: async (user) => {
-          // Cascade-delete all app data before Better Auth removes the user record
-          await connectDB();
-          const boards = await Board.find({ userId: user.id });
-          const boardIds = boards.map((b) => b._id);
-          await JobApplication.deleteMany({ userID: user.id });
-          await Column.deleteMany({ boardID: { $in: boardIds } });
-          await Board.deleteMany({ userId: user.id });
         },
       },
     },

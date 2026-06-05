@@ -23,7 +23,7 @@ export async function createJobApplication(data: JobApplicationData) {
   const session = await getSession();
 
   if (!session?.user) {
-    return { error: "Unathorized" };
+    return { error: "Unauthorized" };
   }
 
   await connectDB();

@@ -6,12 +6,12 @@ import React, { useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { updateProfileImage } from "@/lib/actions/user-profile";
-import { success } from "better-auth";
 import { Camera, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 const MAX_SIZE_MB = 2;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 interface ProfileImageSectionProps {
   currentImage?: string | null;
@@ -25,11 +25,13 @@ export default function ProfileImageSection({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(currentImage ?? "");
   const [loading, setLoading] = useState(false);
-const [status, setStatus] = useState<{error?: string; success?: string }>({});
+  const [status, setStatus] = useState<{ error?: string; success?: string }>(
+    {},
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
   // Keep track of the blob URL to revoke it and avoid memory leaks
-  const previewBloblRef = useRef<string | null>(null);
+  const previewBlobRef = useRef<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -37,21 +39,21 @@ const [status, setStatus] = useState<{error?: string; success?: string }>({});
 
     setStatus({});
 
-    if (!file.type.startsWith("/image")) {
-      setStatus({ error: "File must be an image"});
+    if (!file.type.startsWith("image/")) {
+      setStatus({ error: "File must be an image" });
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setStatus({ error: `Image must be under ${MAX_SIZE_MB}MB`})
+      setStatus({ error: `Image must be under ${MAX_SIZE_MB}MB` });
       return;
     }
 
     // Revoke previous blob URL before creating a new one
-    if (previewBloblRef.current) {
-      URL.revokeObjectURL(previewBloblRef.current);
+    if (previewBlobRef.current) {
+      URL.revokeObjectURL(previewBlobRef.current);
     }
     const blobUrl = URL.createObjectURL(file);
-    previewBloblRef.current = blobUrl;
+    previewBlobRef.current = blobUrl;
 
     setSelectedFile(file);
     setPreview(blobUrl);
@@ -69,29 +71,28 @@ const [status, setStatus] = useState<{error?: string; success?: string }>({});
     const result = await updateProfileImage(formData);
 
     if (result.error) {
-      setStatus({ error: result.error})
+      setStatus({ error: result.error });
       // Revert preview to the saved image on error
-      if (previewBloblRef.current) {
-        URL.revokeObjectURL(previewBloblRef.current);
-        previewBloblRef.current = null;
+      if (previewBlobRef.current) {
+        URL.revokeObjectURL(previewBlobRef.current);
+        previewBlobRef.current = null;
       }
       setPreview(currentImage ?? null);
       setSelectedFile(null);
     } else {
-      setStatus({ success: "Profile image updated"});
+      setStatus({ success: "Profile image updated" });
       // Replace the blob preview with the persisted Cloudinary URL
-      if (previewBloblRef.current) {
-        URL.revokeObjectURL(previewBloblRef.current);
-        previewBloblRef.current = null;
+      if (previewBlobRef.current) {
+        URL.revokeObjectURL(previewBlobRef.current);
+        previewBlobRef.current = null;
       }
-      setPreview(result.data?.imageUrl ?? preview)
+      setPreview(result.data?.imageUrl ?? preview);
       setSelectedFile(null);
+      setTimeout(() => window.location.reload(), 1000); // Auto-reload after 1s
     }
 
     setLoading(false);
   }
-
-  const initials = name?.[0].toUpperCase() ?? "U";
 
   return (
     <Card>
@@ -101,9 +102,12 @@ const [status, setStatus] = useState<{error?: string; success?: string }>({});
       <CardContent className="flex items-center gap-6">
         <div className="relative">
           <Avatar className="h-20 w-20">
-            <AvatarImage src={preview ?? undefined} alt={name} />
+            <AvatarImage
+              src={preview ?? "/public/AvatarFallback.png"}
+              alt={name}
+            />
             <AvatarFallback className="bg-primary text-white text-2xl">
-              {initials}
+              {name?.[0].toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <button
@@ -117,7 +121,7 @@ const [status, setStatus] = useState<{error?: string; success?: string }>({});
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_TYPES.join(",")}
             className="hidden"
             onChange={handleFileChange}
           />

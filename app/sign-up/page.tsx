@@ -28,7 +28,7 @@ export default function SignUp() {
 
   const router = useRouter();
 
-  async function handleSubmit(e: React.SubmitEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setError("");
@@ -46,7 +46,7 @@ export default function SignUp() {
       } else {
         router.push("/dashboard");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected occurred.");
     } finally {
       setLoading(false);

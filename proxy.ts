@@ -6,11 +6,11 @@ export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Better Auth session cookie (http in dev, __Secure- in prod)
-  const sessionCokie =
+  const sessionCookie =
     request.cookies.get("better-auth.session_token") ??
     request.cookies.get("__Secure-better-auth.session_token");
 
-  const hasSession = !!sessionCokie?.value;
+  const hasSession = !!sessionCookie?.value;
 
   const isAuthPage =
     pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");

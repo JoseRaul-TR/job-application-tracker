@@ -73,7 +73,7 @@ const COLUMN_CONFIG: Array<ColConfig> = [
   },
 ];
 
-function DropableColumn({
+function DroppableColumn({
   column,
   config,
   boardId,
@@ -95,7 +95,7 @@ function DropableColumn({
     column.jobApplications.sort((a, b) => a.order - b.order) || [];
 
   return (
-    <Card className="min-w-[300px] flex-shrink-0 shadow-md p-0">
+    <Card className="min-w-75 shrink-0 shadow-md p-0">
       <CardHeader
         className={`${config.color} text-white rounded-t-lg pb-3 pt-3`}
       >
@@ -128,16 +128,16 @@ function DropableColumn({
 
       <CardContent
         ref={setNodeRef}
-        className={`space-y-2 pt-4 bg-gray-50/50 min-h-[400px] rounded-b-lg 
+        className={`space-y-2 pt-4 bg-gray-50/50 min-h-100 rounded-b-lg 
         ${isOver ? "ring-2 ring-blue-500" : ""}`}
       >
         <SortableContext
           items={sortedJobs.map((job) => job._id)}
           strategy={verticalListSortingStrategy}
         >
-          {sortedJobs.map((job, key) => (
+          {sortedJobs.map((job) => (
             <SortableJobCard
-              key={key}
+              key={job._id}
               job={{ ...job, columnId: job.columnId || column._id }}
               columns={sortedColumns}
             />
@@ -234,7 +234,7 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
 
     if (!draggedJob || !sourceColumn) return;
 
-    // Check if dropped in a column or annother job
+    // Check if dropped in a column or another job
     const targetColumn = sortedColumns.find((col) => col._id === overId);
     const targetJob = sortedColumns
       .flatMap((col) => col.jobApplications || [])
@@ -303,6 +303,7 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
     .find((job) => job._id === activeId);
   return (
     <DndContext
+      id="kanban-dnd-context"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
@@ -316,7 +317,7 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
               icon: <Calendar className="h-4 w-4" />,
             };
             return (
-              <DropableColumn
+              <DroppableColumn
                 key={key}
                 column={col}
                 config={config}
