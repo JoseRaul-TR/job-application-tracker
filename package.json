@@ -33,6 +33,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
     "mongodb": "^7.2.0",

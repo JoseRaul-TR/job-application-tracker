@@ -1,11 +1,12 @@
 // lib/auth/auth.ts
 
-import { betterAuth } from "better-auth";
+import { betterAuth, email } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { initializeUserBoard } from "../init-user-board";
+import { User } from "../models";
 
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
@@ -22,6 +23,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: false,
   },
   databaseHooks: {
     user: {
@@ -29,6 +31,27 @@ export const auth = betterAuth({
         after: async (user) => {
           if (user.id) {
             await initializeUserBoard(user.id);
+            await User.create({
+              _id: user.id,
+              name: user.name,
+              email: user.email,
+              password: user.password,
+            });
+          }
+        },
+      },
+      update: {
+        after: async (user) => {
+          if (user.id) {
+            await User.findByIdAndUpdate(
+              user.id,
+              {
+                name: user.name,
+                email: user.email,
+                image: user.image,
+              },
+              { new: true },
+            );
           }
         },
       },
