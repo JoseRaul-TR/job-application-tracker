@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "../auth/auth";
 import connectDB from "../db";
 import { Board, Column, JobApplication } from "../models";
+import { success } from "better-auth";
 
 interface JobApplicationData {
   company: string;
@@ -257,6 +258,39 @@ export async function deleteJobApplication(id: string) {
   });
 
   await JobApplication.deleteOne({ _id: id });
+
+  revalidatePath("/dashboard");
+
+  return { success: true };
+}
+
+export async function deleteColumn(columnId: string) {
+  const session = await getSession();
+  if (!session?.user) return { error: "Unauthorized" };
+
+  await connectDB();
+
+  // Find and delete the column
+  const column = await Column.findById(columnId);
+  if (!column) return { error: "Column not found" };
+
+  // Verify ownership through board
+  const board = await Board.findOne({
+    _id: column.boardId,
+    userId: session.user.id,
+  });
+  if (!board) return { error: "Unauthorized" };
+
+  // Delete all job applications in this column
+  await JobApplication.deleteMany({ columnId });
+
+  // Remove column reference from board
+  await Board.findByIdAndUpdate(column.boardId, {
+    $pull: { columns: columnId },
+  });
+
+  // Delete the column
+  await Column.findByIdAndDelete(columnId);
 
   revalidatePath("/dashboard");
 

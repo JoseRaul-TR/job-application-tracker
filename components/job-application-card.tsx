@@ -28,6 +28,17 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import React, { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { toast } from "sonner";
 
 interface JobApplicationCardProps {
   job: JobApplication;
@@ -52,6 +63,7 @@ export default function JobApplicationCard({
     tags: job.tags?.join(", ") || "",
     description: job.description || "",
   });
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   async function handleUpdate(e: React.SubmitEvent) {
     e.preventDefault();
@@ -84,16 +96,9 @@ export default function JobApplicationCard({
   }
 
   async function handleDelete() {
-    try {
-      const result = await deleteJobApplication(job._id);
-
-      if (result.error) {
-        console.error("Failed to delete job application: ", result.error);
-      }
-    } catch (err) {
-      console.error("Failed to delete job application: ", err);
-    }
+    setIsDeleteDialogOpen(true);
   }
+
   return (
     <>
       <Card
@@ -163,7 +168,7 @@ export default function JobApplicationCard({
                   )}
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={() => handleDelete()}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
@@ -291,6 +296,41 @@ export default function JobApplicationCard({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Alert Dialog for Delete */}
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this job application
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                try {
+                  const result = await deleteJobApplication(job._id);
+                  if (!result.error) {
+                    toast.success("Job application deleted");
+                    setIsDeleteDialogOpen(false);
+                    window.location.reload();
+                  }
+                } catch {
+                  toast.error("Failed to delete job application: ");
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

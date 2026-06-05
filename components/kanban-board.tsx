@@ -41,6 +41,18 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { deleteColumn } from "@/lib/actions/job-applications";
+import { toast } from "sonner";
 
 interface KanbanBoardProps {
   board: Board;
@@ -84,6 +96,7 @@ function DroppableColumn({
   boardId: string;
   sortedColumns: Column[];
 }) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
     id: column._id,
     data: {
@@ -95,58 +108,105 @@ function DroppableColumn({
     column.jobApplications.sort((a, b) => a.order - b.order) || [];
 
   return (
-    <Card className="min-w-75 shrink-0 shadow-md p-0">
-      <CardHeader
-        className={`${config.color} text-white rounded-t-lg pb-3 pt-3`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {config.icon}
-            <CardTitle className="text-white text-base font-semibold">
-              {column.name}
-            </CardTitle>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-white hover:bg-white/20"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-
-      <CardContent
-        ref={setNodeRef}
-        className={`space-y-2 pt-4 bg-gray-50/50 min-h-100 rounded-b-lg 
-        ${isOver ? "ring-2 ring-blue-500" : ""}`}
-      >
-        <SortableContext
-          items={sortedJobs.map((job) => job._id)}
-          strategy={verticalListSortingStrategy}
+    <>
+      <Card className="min-w-75 shrink-0 shadow-md p-0">
+        <CardHeader
+          className={`${config.color} text-white rounded-t-lg pb-3 pt-3`}
         >
-          {sortedJobs.map((job) => (
-            <SortableJobCard
-              key={job._id}
-              job={{ ...job, columnId: job.columnId || column._id }}
-              columns={sortedColumns}
-            />
-          ))}
-        </SortableContext>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {config.icon}
+              <CardTitle className="text-white text-base font-semibold">
+                {column.name}
+              </CardTitle>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-white hover:bg-white/20"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:bg-destructive/10"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Column
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
 
-        <CreateJobApplicationDialogue columnId={column._id} boardId={boardId} />
-      </CardContent>
-    </Card>
+        <CardContent
+          ref={setNodeRef}
+          className={`space-y-2 pt-4 bg-gray-50/50 min-h-100 rounded-b-lg 
+        ${isOver ? "ring-2 ring-blue-500" : ""}`}
+        >
+          <SortableContext
+            items={sortedJobs.map((job) => job._id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {sortedJobs.map((job) => (
+              <SortableJobCard
+                key={job._id}
+                job={{ ...job, columnId: job.columnId || column._id }}
+                columns={sortedColumns}
+              />
+            ))}
+          </SortableContext>
+
+          <CreateJobApplicationDialogue
+            columnId={column._id}
+            boardId={boardId}
+          />
+        </CardContent>
+      </Card>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this column and all{" "}
+              {column.jobApplications.length} job applications in it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                try {
+                  const result = await deleteColumn(column._id);
+                  if (!result.error) {
+                    toast.success(
+                      `Column and ${column.jobApplications.length} job(s) deleted`,
+                    );
+                    setIsDeleteDialogOpen(false);
+                    window.location.reload();
+                  } else {
+                    toast.error(result.error || "Failed to delete column");
+                  }
+                } catch {
+                  toast.error("Failed to delete column");
+                }
+              }}
+            >
+              Delete Column
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
