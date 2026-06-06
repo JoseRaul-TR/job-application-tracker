@@ -181,7 +181,7 @@ function DroppableColumn({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {column.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this column and all{" "}
+              This will permanently delete the {column.name} and its{" "}
               {column.jobApplications.length} job application(s) inside it.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -194,7 +194,7 @@ function DroppableColumn({
                 if (!result.error) {
                   toast.success(`"${column.name}" deleted`);
                   setIsDeleteDialogOpen(false);
-                  router.refresh(); // ✅ instead of window.location.reload()
+                  router.refresh();
                 } else {
                   toast.error(result.error);
                 }
@@ -361,7 +361,7 @@ export default function KanbanBoard({ board }: KanbanBoardProps) {
   const activeJob = sortedColumns
     .flatMap((col) => col.jobApplications || [])
     .find((job) => job._id === activeId);
-    
+
   return (
     <DndContext
       id="kanban-dnd-context"
