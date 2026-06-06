@@ -5,6 +5,7 @@ A Kanban-style job application tracking dashboard built with Next.js 16, MongoDB
 ## Features
 
 ### Core Features (from tutorial)
+
 - Drag-and-drop Kanban board for tracking job applications
 - Create, read, update, and delete job application cards
 - Organize applications into customizable columns
@@ -14,14 +15,16 @@ A Kanban-style job application tracking dashboard built with Next.js 16, MongoDB
 ### Extended Features
 
 #### User Profile & Settings
+
 - **Profile Picture**: Upload and update profile images stored in Cloudinary
 - **Update User Details**: Change display name, email, and password
 - **Account Management**: Delete account with confirmation
 - **Settings Page**: Dedicated page at `/settings` for all user preferences
 
 #### Enhanced User Experience
+
 - **Toast Notifications**: All user messages (success/error) use `sonner` for non-intrusive toast notifications
-- **Delete Functionality**: 
+- **Delete Functionality**:
   - Delete individual job applications
   - Delete entire columns (with all contained job applications)
 - **Session Management**: Automatic session handling with secure cookies
@@ -41,7 +44,7 @@ A Kanban-style job application tracking dashboard built with Next.js 16, MongoDB
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - MongoDB Atlas account (or local MongoDB)
 - Cloudinary account (for profile image storage)
 
@@ -67,12 +70,14 @@ NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/JoseRaul-TR/job-application-tracker.git
 cd job-application-tracker
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
@@ -80,6 +85,7 @@ npm install
 3. Set up your environment variables as shown above
 
 4. Run the development server:
+
 ```bash
 npm run dev
 ```
@@ -118,11 +124,13 @@ job-application-tracker/
 ## Usage
 
 ### User Authentication
+
 - Sign up with email and password
 - Sign in to access your dashboard
 - All protected routes redirect to sign-in if not authenticated
 
 ### Dashboard
+
 - **Columns**: Create columns to organize job applications (e.g., "Applied", "Interview", "Offer")
 - **Job Applications**: Drag and drop cards between columns
 - **Create**: Click "Add Job" to create a new job application
@@ -130,6 +138,7 @@ job-application-tracker/
 - **Delete**: Click the delete button to remove a job application or entire column
 
 ### Settings
+
 - **Profile Picture**: Click the camera icon to upload a new profile picture
 - **Display Name**: Update your name in the settings form
 - **Email**: Change your email address (password confirmation required)
@@ -138,21 +147,22 @@ job-application-tracker/
 
 ## Screenshots
 
-TODO: Add screenshots of the application here
-- Dashboard view with Kanban board
-- Settings page with profile picture upload
-- Job application card details
-- Column management
+<img width="2940" height="2226" alt="image" src="https://github.com/user-attachments/assets/670c95ac-395d-4a6b-bb51-128e22b01740" />
+<img width="2940" height="2818" alt="image" src="https://github.com/user-attachments/assets/8f2716cc-e97c-495b-8297-ae392e9e3b32" />
+<img width="2940" height="1678" alt="image" src="https://github.com/user-attachments/assets/f996687d-8b85-40bf-b389-db6093367c86" />
+<img width="2940" height="1678" alt="image" src="https://github.com/user-attachments/assets/8dfef310-25b2-4aad-9e4b-3c8fc30e1d95" />
 
 ## Known Bugs
 
 ### Email Update Issue
+
 - **Description**: When attempting to update the user's email address in the Settings page, the application may throw a "Verification email isn't enabled" error.
 - **Root Cause**: Better Auth's `changeEmail` API requires the email verification plugin to be properly configured. The current workaround enables the plugin but disables email sending.
 - **Workaround**: The issue has been partially addressed by configuring the email verification plugin with a no-op email sender. However, email updates may still fail in certain edge cases.
 - **Status**: ⚠️ Partially fixed - requires further investigation into Better Auth v1.x email change behavior
 
 ### Other Known Issues
+
 - **SecurityError**: Rare security errors may occur during password changes in development mode due to cookie security settings. This is being addressed through improved cookie configuration.
 - **Session Refresh**: After certain actions (like profile image upload), a page reload is triggered. This could be optimized to use React state updates instead.
 

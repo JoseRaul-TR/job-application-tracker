@@ -179,9 +179,9 @@ function DroppableColumn({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {column.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {column.name} Column?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the {column.name} and its{" "}
+              This will permanently delete the {column.name} column and its{" "}
               {column.jobApplications.length} job application(s) inside it.
             </AlertDialogDescription>
           </AlertDialogHeader>
