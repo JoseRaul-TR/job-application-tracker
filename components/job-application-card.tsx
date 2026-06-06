@@ -28,6 +28,18 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import React, { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface JobApplicationCardProps {
   job: JobApplication;
@@ -40,7 +52,9 @@ export default function JobApplicationCard({
   columns,
   dragHandleProps,
 }: JobApplicationCardProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     company: job.company,
     position: job.position,
@@ -66,10 +80,14 @@ export default function JobApplicationCard({
       });
 
       if (!result.error) {
+        toast.success("Job application updated");
         setIsEditing(false);
+        router.refresh();
+      } else {
+        toast.error(result.error);
       }
-    } catch (err) {
-      console.error("Failed to move job application: ", err);
+    } catch {
+      toast.error("Failed to move job application: ");
     }
   }
 
@@ -78,20 +96,29 @@ export default function JobApplicationCard({
       const result = await updateJobApplication(job._id, {
         columnId: newColumnId,
       });
-    } catch (err) {
-      console.error("Failed to move job application: ", err);
+      if (!result.error) {
+        toast.success("Moved successfully");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Failed to move job application");
     }
   }
 
   async function handleDelete() {
     try {
       const result = await deleteJobApplication(job._id);
-
-      if (result.error) {
-        console.error("Failed to delete job application: ", result.error);
+      if (!result.error) {
+        toast.success("Job application deleted");
+        setIsDeleteDialogOpen(false);
+        router.refresh();
+      } else {
+        toast.error(result.error);
       }
-    } catch (err) {
-      console.error("Failed to delete job application: ", err);
+    } catch {
+      toast.error("Failed to delete job application");
     }
   }
   return (
@@ -163,7 +190,7 @@ export default function JobApplicationCard({
                   )}
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={() => handleDelete()}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
@@ -175,6 +202,7 @@ export default function JobApplicationCard({
         </CardContent>
       </Card>
 
+      {/* Add Job Dialog */}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -291,6 +319,30 @@ export default function JobApplicationCard({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation*/}
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this job application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the application for {job.position} at {job.company}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

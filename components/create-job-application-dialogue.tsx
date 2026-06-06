@@ -16,6 +16,7 @@ import {
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
+import { toast } from "sonner";
 import React, { useState } from "react";
 import { createJobApplication } from "@/lib/actions/job-applications";
 
@@ -42,7 +43,7 @@ export default function CreateJobApplicationDialog({
   const [open, setOpen] = useState<boolean>(false);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
 
     try {
@@ -57,12 +58,15 @@ export default function CreateJobApplicationDialog({
       });
 
       if (!result.error) {
+        toast.success("Job application created successfully");
         setFormData(INITIAL_FORM_DATA);
         setOpen(false);
       } else {
+        toast.error(result.error || "Failed to create job application");
         console.error("Failed to create job: ", result.error);
       }
     } catch (err) {
+      toast.error("An unexpected error occurred");
       console.error(err);
     }
   }

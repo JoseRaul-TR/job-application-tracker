@@ -5,6 +5,7 @@
 import { signOut } from "@/lib/auth/auth-client";
 import { DropdownMenuItem } from "./ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function SignOutBtn() {
   const router = useRouter();
@@ -14,9 +15,10 @@ export default function SignOutBtn() {
       onClick={async () => {
         const result = await signOut();
         if (result.data) {
+          toast.success("Signed out successfully");
           router.push("/sign-in");
         } else {
-          alert("Error signing out");
+          toast.error("Error signing out");
         }
       }}
     >

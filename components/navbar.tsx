@@ -1,6 +1,5 @@
 // components/navbar.tsx
 
-
 "use client";
 
 import { Briefcase } from "lucide-react";
@@ -9,15 +8,17 @@ import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import SignOutButton from "./sign-out-btn";
 import { useSession } from "@/lib/auth/auth-client";
 
 export default function Navbar() {
   const { data: session } = useSession();
+
   return (
     <nav className="border-b border-gray-200 bg-white">
       <div className="container mx-auto flex h-16 items-center px-4 justify-between">
@@ -46,9 +47,8 @@ export default function Navbar() {
                     className="relative h-8 w-8 rounded-full"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-primary text-white">
-                        {session.user.name[0].toUpperCase()}
-                      </AvatarFallback>
+                      <AvatarImage src={session.user.image ?? undefined} alt={session.user.name}/>
+                      <AvatarFallback>{session.user.name?.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -64,6 +64,9 @@ export default function Navbar() {
                       </p>
                     </div>
                   </DropdownMenuLabel>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">Account Settings</Link>
+                  </DropdownMenuItem>
                   <SignOutButton />
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -41,6 +41,19 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { deleteColumn } from "@/lib/actions/job-applications";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface KanbanBoardProps {
   board: Board;
@@ -50,7 +63,8 @@ interface ColConfig {
   color: string;
   icon: React.ReactNode;
 }
-const COLUMN_CONFIG: Array<ColConfig> = [
+
+const COLUMN_CONFIG: ColConfig[] = [
   {
     color: "bg-cyan-500",
     icon: <Calendar className="h-4 w-4" />,
@@ -73,7 +87,7 @@ const COLUMN_CONFIG: Array<ColConfig> = [
   },
 ];
 
-function DropableColumn({
+function DroppableColumn({
   column,
   config,
   boardId,
@@ -84,6 +98,9 @@ function DropableColumn({
   boardId: string;
   sortedColumns: Column[];
 }) {
+  const router = useRouter();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const { setNodeRef, isOver } = useDroppable({
     id: column._id,
     data: {
@@ -91,62 +108,104 @@ function DropableColumn({
       columnId: column._id,
     },
   });
+
   const sortedJobs =
     column.jobApplications.sort((a, b) => a.order - b.order) || [];
 
   return (
-    <Card className="min-w-[300px] flex-shrink-0 shadow-md p-0">
-      <CardHeader
-        className={`${config.color} text-white rounded-t-lg pb-3 pt-3`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {config.icon}
-            <CardTitle className="text-white text-base font-semibold">
-              {column.name}
-            </CardTitle>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-white hover:bg-white/20"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-
-      <CardContent
-        ref={setNodeRef}
-        className={`space-y-2 pt-4 bg-gray-50/50 min-h-[400px] rounded-b-lg 
-        ${isOver ? "ring-2 ring-blue-500" : ""}`}
-      >
-        <SortableContext
-          items={sortedJobs.map((job) => job._id)}
-          strategy={verticalListSortingStrategy}
+    <>
+      <Card className="min-w-75 shrink-0 shadow-md p-0">
+        <CardHeader
+          className={`${config.color} text-white rounded-t-lg pb-3 pt-3`}
         >
-          {sortedJobs.map((job, key) => (
-            <SortableJobCard
-              key={key}
-              job={{ ...job, columnId: job.columnId || column._id }}
-              columns={sortedColumns}
-            />
-          ))}
-        </SortableContext>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {config.icon}
+              <CardTitle className="text-white text-base font-semibold">
+                {column.name}
+              </CardTitle>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-white hover:bg-white/20"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:bg-destructive/10"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Column
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
 
-        <CreateJobApplicationDialogue columnId={column._id} boardId={boardId} />
-      </CardContent>
-    </Card>
+        <CardContent
+          ref={setNodeRef}
+          className={`space-y-2 pt-4 bg-gray-50/50 min-h-100 rounded-b-lg 
+        ${isOver ? "ring-2 ring-blue-500" : ""}`}
+        >
+          <SortableContext
+            items={sortedJobs.map((job) => job._id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {sortedJobs.map((job) => (
+              <SortableJobCard
+                key={job._id}
+                job={{ ...job, columnId: job.columnId || column._id }}
+                columns={sortedColumns}
+              />
+            ))}
+          </SortableContext>
+
+          <CreateJobApplicationDialogue
+            columnId={column._id}
+            boardId={boardId}
+          />
+        </CardContent>
+      </Card>
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {column.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this column and all{" "}
+              {column.jobApplications.length} job application(s) inside it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const result = await deleteColumn(column._id);
+                if (!result.error) {
+                  toast.success(`"${column.name}" deleted`);
+                  setIsDeleteDialogOpen(false);
+                  router.refresh(); // ✅ instead of window.location.reload()
+                } else {
+                  toast.error(result.error);
+                }
+              }}
+            >
+              Delete Column
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -172,13 +231,15 @@ function SortableJobCard({
     },
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
   return (
-    <div ref={setNodeRef} style={style}>
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    >
       <JobApplicationCard
         job={job}
         columns={columns}
@@ -188,7 +249,7 @@ function SortableJobCard({
   );
 }
 
-export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
+export default function KanbanBoard({ board }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const { columns, moveJob } = useBoard(board);
 
@@ -208,7 +269,6 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-
     setActiveId(null);
 
     if (!over || !board._id) return;
@@ -234,7 +294,7 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
 
     if (!draggedJob || !sourceColumn) return;
 
-    // Check if dropped in a column or annother job
+    // Check if dropped in a column or another job
     const targetColumn = sortedColumns.find((col) => col._id === overId);
     const targetJob = sortedColumns
       .flatMap((col) => col.jobApplications || [])
@@ -301,8 +361,10 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
   const activeJob = sortedColumns
     .flatMap((col) => col.jobApplications || [])
     .find((job) => job._id === activeId);
+    
   return (
     <DndContext
+      id="kanban-dnd-context"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
@@ -316,7 +378,7 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
               icon: <Calendar className="h-4 w-4" />,
             };
             return (
-              <DropableColumn
+              <DroppableColumn
                 key={key}
                 column={col}
                 config={config}

@@ -17,21 +17,20 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function SignUp() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
-  async function handleSubmit(e: React.SubmitEvent) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    setError("");
     setLoading(true);
 
     try {
@@ -42,12 +41,13 @@ export default function SignUp() {
       });
 
       if (result.error) {
-        setError(result.error.message ?? "Failed to sign up");
+        toast.error(result.error.message ?? "Failed to sign up");
       } else {
+        toast.success("Account created successfully");
         router.push("/dashboard");
       }
-    } catch (err) {
-      setError("An unexpected occurred.");
+    } catch {
+      toast.error("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -66,11 +66,6 @@ export default function SignUp() {
         </CardHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="name" className="text-gray-700">
                 Name

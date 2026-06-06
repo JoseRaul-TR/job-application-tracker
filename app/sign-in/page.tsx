@@ -16,13 +16,13 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { signIn } from "@/lib/auth/auth-client";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
@@ -30,7 +30,6 @@ export default function SignIn() {
   async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
 
-    setError("");
     setLoading(true);
 
     try {
@@ -40,12 +39,13 @@ export default function SignIn() {
       });
 
       if (result.error) {
-        setError(result.error.message ?? "Failed to sign in");
+        toast.error(result.error.message ?? "Failed to sign in");
       } else {
+        toast.success("Signed in successfully");
         router.push("/dashboard");
       }
-    } catch (err) {
-      setError("An unexpected occurred.");
+    } catch {
+      toast.error("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -63,11 +63,6 @@ export default function SignIn() {
         </CardHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-700">
                 Email
