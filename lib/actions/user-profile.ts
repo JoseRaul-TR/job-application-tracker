@@ -14,9 +14,9 @@ cloudinary.config({
 });
 
 // ─── Shared password verification ────────────────────────────────────────────
-// auth.api.signInEmail returns an error object on failure — it does NOT throw.
-// We use .catch(() => null) to handle the rare case it does throw, then check
-// the returned value for a valid user object.
+// auth.api.signInEmail returns an error object on failure, it does NOT throw.
+// The .catch(() => null) handles the edge case where it does throw,
+// then !!result?.user covers the "returned an error object" case.
 
 async function verifyPassword(
   email: string,
@@ -68,7 +68,6 @@ export async function updateProfileImage(formData: FormData) {
       headers: await headers(),
     });
     revalidatePath("/settings");
-
     return { data: { imageUrl } };
   } catch (err) {
     console.error("Image upload error:", err);
@@ -139,7 +138,8 @@ export async function updateEmail({
     // Better Auth throws when the email is already taken
     if (
       message.toLowerCase().includes("email") ||
-      message.toLowerCase().includes("exist")
+      message.toLowerCase().includes("exist") ||
+      message.toLowerCase().includes("duplicate")
     ) {
       return { error: "Email already in use by another account" };
     }
@@ -165,7 +165,7 @@ export async function updatePassword({
 
   try {
     await auth.api.changePassword({
-      body: { currentPassword, newPassword, revokeOtherSessions: true },
+      body: { currentPassword, newPassword },
       headers: await headers(),
     });
     revalidatePath("/settings");
@@ -189,9 +189,7 @@ export async function deleteAccount(password: string) {
   const passwordValid = await verifyPassword(session.user.email, password);
   if (!passwordValid) return { error: "Incorrect password" };
 
-  // Cascade-delete all app data first.
-  // This is done here rather than in databaseHooks because Better Auth v1.x
-  // does not reliably support a user.delete.hook.
+  // Cascade-delete all app data before removing the Better Auth user record
   try {
     await connectDB();
     const boards = await Board.find({ userId: session.user.id });

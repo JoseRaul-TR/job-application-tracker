@@ -6,15 +6,31 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { toast } from "sonner";
 import {
   updateName,
   updateEmail,
   updatePassword,
 } from "@/lib/actions/user-profile";
 
-interface StatusState {
-  error?: string;
-  success?: string;
+// ─── DRY helper ───────────────────────────────────────────────────────────────
+// Runs an action with loading state and dispatches toast automatically.
+// Returns the result so callers can do extra work on success (e.g. reset fields).
+
+async function runWithLoading(
+  setLoading: (v: boolean) => void,
+  action: () => Promise<{ error?: string; success?: boolean }>,
+  successMessage: string,
+): Promise<{ error?: string; success?: boolean }> {
+  setLoading(true);
+  const result = await action();
+  if (result.error) {
+    toast.error(result.error);
+  } else {
+    toast.success(successMessage);
+  }
+  setLoading(false);
+  return result;
 }
 
 export default function SettingsForm({
@@ -22,83 +38,61 @@ export default function SettingsForm({
 }: {
   user: { name: string; email: string };
 }) {
-  // –– Name states –––
   const [name, setName] = useState(user.name);
   const [nameLoading, setNameLoading] = useState(false);
-  const [nameStatus, setNameStatus] = useState<StatusState>({});
-  // –– Email states –––
+
   const [currentEmail, setCurrentEmail] = useState(user.email);
   const [newEmail, setNewEmail] = useState("");
   const [emailPassword, setEmailPassword] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<StatusState>({});
-  // –– Password states –––
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordStatus, setPasswordStatus] = useState<StatusState>({});
-
-  // ––– Handlers –––
 
   async function handleUpdateName() {
-    setNameLoading(true);
-    setNameStatus({});
-    const result = await updateName(name);
-    setNameStatus(
-      result.error
-        ? { error: result.error }
-        : { success: "Name updated successfully" },
+    await runWithLoading(
+      setNameLoading,
+      () => updateName(name),
+      "Name updated",
     );
-    setNameLoading(false);
   }
 
   async function handleUpdateEmail(e: React.SubmitEvent) {
     e.preventDefault();
-    setEmailStatus({});
-
-    setEmailLoading(true);
-    const result = await updateEmail({
-      newEmail,
-      currentPassword: emailPassword,
-    });
-
-    if (result.error) {
-      setEmailStatus({ error: result.error });
-    } else {
-      setEmailStatus({ success: "Email updated successfully" });
+    const result = await runWithLoading(
+      setEmailLoading,
+      () => updateEmail({ newEmail, currentPassword: emailPassword }),
+      "Email updated",
+    );
+    if (!result.error) {
       setCurrentEmail(newEmail.trim().toLowerCase());
       setNewEmail("");
       setEmailPassword("");
     }
-    setEmailLoading(false);
   }
 
   async function handleUpdatePassword(e: React.SubmitEvent) {
     e.preventDefault();
-    setPasswordStatus({});
-
     if (newPassword !== confirmPassword) {
-      setPasswordStatus({ error: "Passwords do not match" });
+      toast.error("Passwords do not match");
       return;
     }
     if (newPassword.length < 8) {
-      setPasswordStatus({ error: "Password must be at least 8 characters" });
+      toast.error("Password must be at least 8 characters");
       return;
     }
-
-    setPasswordLoading(true);
-    const result = await updatePassword({ currentPassword, newPassword });
-
-    if (result.error) {
-      setPasswordStatus({ error: result.error });
-    } else {
-      setPasswordStatus({ success: "Password updated successfully" });
+    const result = await runWithLoading(
+      setPasswordLoading,
+      () => updatePassword({ currentPassword, newPassword }),
+      "Password updated",
+    );
+    if (!result.error) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     }
-    setPasswordLoading(false);
   }
 
   return (
@@ -117,12 +111,6 @@ export default function SettingsForm({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          {nameStatus.error && (
-            <p className="text-sm text-destructive">{nameStatus.error}</p>
-          )}
-          {nameStatus.success && (
-            <p className="text-sm text-green-600">{nameStatus.success}</p>
-          )}
           <Button onClick={handleUpdateName} disabled={nameLoading}>
             {nameLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Name
@@ -130,7 +118,7 @@ export default function SettingsForm({
         </CardContent>
       </Card>
 
-      {/* ––– Email ––– */}
+      {/* ── Email ── */}
       <Card>
         <CardHeader>
           <CardTitle>Email Address</CardTitle>
@@ -157,18 +145,12 @@ export default function SettingsForm({
               <Input
                 id="emailPassword"
                 type="password"
-                placeholder="Introduce your password to confirm your identity"
+                placeholder="Confirm your identity"
                 value={emailPassword}
                 onChange={(e) => setEmailPassword(e.target.value)}
                 required
               />
             </div>
-            {emailStatus.error && (
-              <p className="text-sm text-destructive">{emailStatus.error}</p>
-            )}
-            {emailStatus.success && (
-              <p className="text-sm text-green-600">{emailStatus.success}</p>
-            )}
             <Button type="submit" disabled={emailLoading}>
               {emailLoading && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -217,12 +199,6 @@ export default function SettingsForm({
                 required
               />
             </div>
-            {passwordStatus.error && (
-              <p className="text-sm text-destructive">{passwordStatus.error}</p>
-            )}
-            {passwordStatus.success && (
-              <p className="text-sm text-green-600">{passwordStatus.success}</p>
-            )}
             <Button type="submit" disabled={passwordLoading}>
               {passwordLoading && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -7,19 +7,25 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { initializeUserBoard } from "../init-user-board";
 
+if (!process.env.MONGODB_URI) {
+  throw new Error("MONGODB_URI environment variable is not set");
+}
+
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
 
 export const auth = betterAuth({
   trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") ?? [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
   ],
   database: mongodbAdapter(db, {
     client,
   }),
   session: {
     cookieCache: {
-      enabled: false,
+      enabled: true,
+      maxAge: 60 * 5,
     },
   },
   emailAndPassword: {

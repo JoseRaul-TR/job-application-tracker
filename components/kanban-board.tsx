@@ -53,6 +53,7 @@ import {
 } from "./ui/alert-dialog";
 import { deleteColumn } from "@/lib/actions/job-applications";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface KanbanBoardProps {
   board: Board;
@@ -62,7 +63,8 @@ interface ColConfig {
   color: string;
   icon: React.ReactNode;
 }
-const COLUMN_CONFIG: Array<ColConfig> = [
+
+const COLUMN_CONFIG: ColConfig[] = [
   {
     color: "bg-cyan-500",
     icon: <Calendar className="h-4 w-4" />,
@@ -96,7 +98,9 @@ function DroppableColumn({
   boardId: string;
   sortedColumns: Column[];
 }) {
+  const router = useRouter();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const { setNodeRef, isOver } = useDroppable({
     id: column._id,
     data: {
@@ -104,6 +108,7 @@ function DroppableColumn({
       columnId: column._id,
     },
   });
+
   const sortedJobs =
     column.jobApplications.sort((a, b) => a.order - b.order) || [];
 
@@ -174,10 +179,10 @@ function DroppableColumn({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {column.name}?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete this column and all{" "}
-              {column.jobApplications.length} job applications in it.
+              {column.jobApplications.length} job application(s) inside it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -185,19 +190,13 @@ function DroppableColumn({
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={async () => {
-                try {
-                  const result = await deleteColumn(column._id);
-                  if (!result.error) {
-                    toast.success(
-                      `Column and ${column.jobApplications.length} job(s) deleted`,
-                    );
-                    setIsDeleteDialogOpen(false);
-                    window.location.reload();
-                  } else {
-                    toast.error(result.error || "Failed to delete column");
-                  }
-                } catch {
-                  toast.error("Failed to delete column");
+                const result = await deleteColumn(column._id);
+                if (!result.error) {
+                  toast.success(`"${column.name}" deleted`);
+                  setIsDeleteDialogOpen(false);
+                  router.refresh(); // ✅ instead of window.location.reload()
+                } else {
+                  toast.error(result.error);
                 }
               }}
             >
@@ -232,13 +231,15 @@ function SortableJobCard({
     },
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
   return (
-    <div ref={setNodeRef} style={style}>
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    >
       <JobApplicationCard
         job={job}
         columns={columns}
@@ -248,7 +249,7 @@ function SortableJobCard({
   );
 }
 
-export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
+export default function KanbanBoard({ board }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const { columns, moveJob } = useBoard(board);
 
@@ -268,7 +269,6 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-
     setActiveId(null);
 
     if (!over || !board._id) return;
@@ -361,6 +361,7 @@ export default function KanbanBoard({ board, userId }: KanbanBoardProps) {
   const activeJob = sortedColumns
     .flatMap((col) => col.jobApplications || [])
     .find((job) => job._id === activeId);
+    
   return (
     <DndContext
       id="kanban-dnd-context"

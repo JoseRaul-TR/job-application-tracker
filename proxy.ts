@@ -5,10 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Better Auth session cookie (http in dev, __Secure- in prod)
+  // Better Auth session cookies (check both secure and non-secure variants)
+  const cookies = request.cookies;
   const sessionCookie =
-    request.cookies.get("better-auth.session_token") ??
-    request.cookies.get("__Secure-better-auth.session_token");
+    cookies.get("better-auth.session_token") ??
+    cookies.get("__Secure-better-auth.session_token") ??
+    cookies.get("better-auth.session");
 
   const hasSession = !!sessionCookie?.value;
 
@@ -22,7 +24,9 @@ export default async function proxy(request: NextRequest) {
   }
 
   if (isProtectedPage && !hasSession) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    const response = NextResponse.redirect(new URL("/sign-in", request.url));
+    // Ensure cookies are passed through for the sign-in page
+    return response;
   }
 
   return NextResponse.next();

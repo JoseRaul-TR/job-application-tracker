@@ -16,35 +16,33 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { deleteAccount } from "@/lib/actions/user-profile";
+import { useRouter } from "next/navigation";
 
 export default function DeleteAccountSection() {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleDelete() {
-    setError("");
     setLoading(true);
-
     const result = await deleteAccount(password);
 
     if (result.error) {
-      setError(result.error);
+      toast.error(result.error);
       setLoading(false);
       return;
     }
 
-    // Account deleted — force a full page reload to clear session state
-    window.location.href = "/";
+    toast.success("Account deleted");
+    router.replace("/");
   }
 
   function handleOpenChange(isOpen: boolean) {
     if (!isOpen) {
-      // Reset state when dialog closes
       setPassword("");
-      setError("");
     }
     setOpen(isOpen);
   }
@@ -56,8 +54,8 @@ export default function DeleteAccountSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Permanently delete your account and all associated data. This action
-          cannot be undone.
+          Permanently delete your account and all associated data. This cannot
+          be undone.
         </p>
 
         <AlertDialog open={open} onOpenChange={handleOpenChange}>
@@ -69,8 +67,8 @@ export default function DeleteAccountSection() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete your account?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete your account, your Kanban board,
-                and all job applications. This cannot be undone.
+                This permanently deletes your account, board, and all job
+                applications.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -84,9 +82,10 @@ export default function DeleteAccountSection() {
                 placeholder="Your current password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleDelete()}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && !loading && password && handleDelete()
+                }
               />
-              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
 
             <AlertDialogFooter>

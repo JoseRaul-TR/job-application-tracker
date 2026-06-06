@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "../auth/auth";
 import connectDB from "../db";
 import { Board, Column, JobApplication } from "../models";
-import { success } from "better-auth";
 
 interface JobApplicationData {
   company: string;
@@ -22,7 +21,6 @@ interface JobApplicationData {
 }
 export async function createJobApplication(data: JobApplicationData) {
   const session = await getSession();
-
   if (!session?.user) {
     return { error: "Unauthorized" };
   }
@@ -51,7 +49,6 @@ export async function createJobApplication(data: JobApplicationData) {
     _id: boardId,
     userId: session.user.id,
   });
-
   if (!board) {
     return { error: "Board not found" };
   }
@@ -61,7 +58,6 @@ export async function createJobApplication(data: JobApplicationData) {
     _id: columnId,
     boardId: boardId,
   });
-
   if (!column) {
     return { error: "Column not found" };
   }
@@ -92,7 +88,6 @@ export async function createJobApplication(data: JobApplicationData) {
   });
 
   revalidatePath("/dashboard");
-
   return { data: JSON.parse(JSON.stringify(jobApplication)) };
 }
 
@@ -112,13 +107,13 @@ export async function updateJobApplication(
   },
 ) {
   const session = await getSession();
-
   if (!session?.user) {
     return { error: "Unauthorized" };
   }
 
-  const jobApplication = await JobApplication.findById(id);
+  await connectDB();
 
+  const jobApplication = await JobApplication.findById(id);
   if (!jobApplication) {
     return { error: "Job application not found" };
   }
@@ -238,17 +233,16 @@ export async function updateJobApplication(
 
 export async function deleteJobApplication(id: string) {
   const session = await getSession();
-
   if (!session?.user) {
     return { error: "Unauthorized" };
   }
 
-  const jobApplication = await JobApplication.findById(id);
+  await connectDB();
 
+  const jobApplication = await JobApplication.findById(id);
   if (!jobApplication) {
     return { error: "Job application not found" };
   }
-
   if (jobApplication.userId !== session.user.id) {
     return { error: "Unauthorized" };
   }
