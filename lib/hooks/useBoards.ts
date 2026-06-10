@@ -78,7 +78,7 @@ export function useBoard(initialBoard?: Board | null) {
     });
 
     try {
-      const result = await updateJobApplication(jobApplicationId, {
+      await updateJobApplication(jobApplicationId, {
         columnId: newColumnId,
         order: newOrder,
       });

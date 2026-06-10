@@ -15,10 +15,7 @@ const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
 
 export const auth = betterAuth({
-  trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") ?? [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-  ],
+  trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(","),
   database: mongodbAdapter(db, {
     client,
   }),
